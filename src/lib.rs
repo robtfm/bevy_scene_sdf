@@ -572,9 +572,9 @@ fn prepare_sdf_meshes(
             if extracted_assets.removed.contains(handle) {
                 false
             } else {
+                new_vec.extend_from_slice(&prev_data[*offset..*offset + *count]);
                 *offset = running_offset;
                 running_offset += *count;
-                new_vec.extend_from_slice(&prev_data[*offset..*offset + *count]);
                 true
             }
         });
