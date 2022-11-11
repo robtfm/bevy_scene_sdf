@@ -53,34 +53,48 @@ fn jfa(@builtin(global_invocation_id) g_id: vec3<u32>) {
                     let source_data = textureLoad(bind::nearest_jfa, jump_source_coords);
 
                     if source_data.a != 0 { // source has a seed 
+
                         let local_seed_voxel = vec3<i32>(local_jump_source + source_data.xyz);
                         let seed_coords = addr::voxel_local_to_maybe_grid(local_seed_voxel);
 
                         if seed_coords.x > -1 { // seed is within our live grid
                             let seed_value = textureLoad(bind::seed_jfa, seed_coords).rg;
 
-                            for (var sx=0u; sx<consts::SUBVOXELS_PER_VOXEL_DIM; sx++) {
-                                for (var sy=0u; sy<consts::SUBVOXELS_PER_VOXEL_DIM; sy++) {
-                                    for (var sz=0u; sz<consts::SUBVOXELS_PER_VOXEL_DIM; sz++) {
-                                        var seed_subvoxel: bool;
-                                        let shift = (((sz * consts::SUBVOXELS_PER_VOXEL_DIM) + sy) * consts::SUBVOXELS_PER_VOXEL_DIM) + sx;
-                                        if shift < 32u {
-                                            seed_subvoxel = ((seed_value.r >> shift) & 1u) == 1u;
-                                        } else {
-                                            seed_subvoxel = ((seed_value.g >> (shift - 32u)) & 1u) == 1u;
-                                        }
+                            if all(source_data.xyz == vec3<i32>(0)) {
+                                // jump source points to itself, need to check every subvoxel
+                                for (var sx=0u; sx<consts::SUBVOXELS_PER_VOXEL_DIM; sx++) {
+                                    for (var sy=0u; sy<consts::SUBVOXELS_PER_VOXEL_DIM; sy++) {
+                                        for (var sz=0u; sz<consts::SUBVOXELS_PER_VOXEL_DIM; sz++) {
+                                            var seed_subvoxel: bool;
+                                            let shift = (((sz * consts::SUBVOXELS_PER_VOXEL_DIM) + sy) * consts::SUBVOXELS_PER_VOXEL_DIM) + sx;
+                                            if shift < 32u {
+                                                seed_subvoxel = ((seed_value.r >> shift) & 1u) == 1u;
+                                            } else {
+                                                seed_subvoxel = ((seed_value.g >> (shift - 32u)) & 1u) == 1u;
+                                            }
 
-                                        if seed_subvoxel {
-                                            let local_seed_position = addr::subvoxel_local_position(local_seed_voxel, vec3<u32>(sx,sy,sz));
-                                            let dist_sq = addr::distance_squared(local_seed_position, target_point);
+                                            if seed_subvoxel {
+                                                let local_seed_position = addr::subvoxel_local_position(local_seed_voxel, vec3<u32>(sx,sy,sz));
+                                                let dist_sq = addr::distance_squared(local_seed_position, target_point);
 
-                                            if dist_sq < best_dist_sq {
-                                                best_dist_sq = dist_sq;
-                                                best_write = vec4<i32>(local_seed_voxel - local_voxel, i32(shift + 1u));
+                                                if dist_sq < best_dist_sq {
+                                                    best_dist_sq = dist_sq;
+                                                    best_write = vec4<i32>(local_seed_voxel - local_voxel, i32(shift + 1u));
+                                                }
                                             }
                                         }
-                                    }
-                                }                                    
+                                    }                                    
+                                }
+                            } else {
+                                // jump source points to another seed cell, we can assume their subvoxel is the one we want
+                                let subvoxel = addr::subvoxel_index_to_subvoxel(u32(source_data.a - 1));
+                                let local_seed_position = addr::subvoxel_local_position(local_seed_voxel, subvoxel);
+                                let dist_sq = addr::distance_squared(local_seed_position, target_point);
+
+                                if dist_sq < best_dist_sq {
+                                    best_dist_sq = dist_sq;
+                                    best_write = vec4<i32>(local_seed_voxel - local_voxel, source_data.a);
+                                }
                             }
                         }
                     }

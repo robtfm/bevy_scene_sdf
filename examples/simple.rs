@@ -132,9 +132,8 @@ fn setup(
     // scene
     if args.cubes == 0 {
         commands.spawn(SceneBundle {
-            // scene: asset_server.load("gltf/bistro.glb#Scene0"),
-            scene: asset_server.load("gltf/sponza/sponza.gltf#Scene0"),
-            transform: Transform::from_xyz(1.0/3.0, 1.0/3.0, 1.0/3.0),
+            scene: asset_server.load("gltf/bistro.glb#Scene0"),
+            // scene: asset_server.load("gltf/sponza/gltf/sponza.gltf#Scene0"),
             ..default()
         })
         .insert(Name::new("scene"))
