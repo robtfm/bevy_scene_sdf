@@ -1,0 +1,13 @@
+[package]
+name = "bevy_scene_sdf"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = { path="../bevy", features=["jpeg"] }
+wgpu = "*" # whatever bevy uses
+
+[patch.crates-io]
+naga_oil = { path="../naga_oil" }

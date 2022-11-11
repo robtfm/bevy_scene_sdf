@@ -1,0 +1,23 @@
+coarse
+// todo
+// - pretransform triangles
+//   - no need to write processed
+// split and duplicate with subsets of tiles regions?
+// parallel prefix sum
+// parallel init
+
+fine
+// todo 
+// * run bounds by bb, remove bb test in intersect
+// / precompute axis test per axis pair
+// - pick output format for subvoxel count
+
+fine_blend
+// todo
+// - parallel over workgroups with i division, take up to end of your working tile when you reach upper limit
+
+jfa simple
+// todo
+// - storage barrier for non-apple, avoid multiple draws?
+// * only jump within update segment bounds (reduces 64,32,16,8 to up+down only). maybe specialised shader for those?
+// - push constant?
