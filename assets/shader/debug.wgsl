@@ -60,24 +60,22 @@ fn fs_main(in: fs::FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let offset = offset.xyz / offset.w;
     let ray = normalize(offset - origin);
 
-    let max_steps = 50;
+    let max_steps = 250;
 
     var min_dist = 1e20;
     var distance_sq = 0.0;
     var cascade = 0u;
-    let base_hit_threshold = 2.0 * 0.5 * cascades_info.cascades[cascade].tile_size / f32(consts::VOXELS_PER_TILE_DIM * consts::SUBVOXELS_PER_VOXEL_DIM);
-    var hit_threshold = base_hit_threshold;
-    var min_step_size = base_hit_threshold;
+    var min_step_size = 0.5 * cascades_info.cascades[cascade].tile_size / f32(consts::VOXELS_PER_TILE_DIM);
     var exited_cascade = false;
     var steps: i32;
 
-    var dist = hit_threshold * 2.0;
+    var dist = min_step_size;
     var total_dist = dist;
 
     var debug: vec3<f32>;
     var pos = origin + dist * ray;
 
-    for (steps = 0; cascade < cascades_info.count && dist > hit_threshold && steps < max_steps; steps++) {
+    for (steps = 0; cascade < cascades_info.count && dist > 0.0 && steps < max_steps; steps++) {
         let res = sample_distance(pos, cascade);
 
         exited_cascade = res.outside_cascade;
@@ -87,8 +85,7 @@ fn fs_main(in: fs::FullscreenVertexOutput) -> @location(0) vec4<f32> {
             if cascade < cascades_info.count {
                 total_dist -= max(dist, min_step_size);
                 pos = origin + total_dist * ray;
-                min_step_size = 2.0 * 0.5 * cascades_info.cascades[cascade].tile_size / f32(consts::VOXELS_PER_TILE_DIM * consts::SUBVOXELS_PER_VOXEL_DIM);
-                hit_threshold = min_step_size;
+                var min_step_size = 0.5 * cascades_info.cascades[cascade].tile_size / f32(consts::VOXELS_PER_TILE_DIM);
             }
         } else {
             dist = res.distance;
@@ -107,7 +104,7 @@ fn fs_main(in: fs::FullscreenVertexOutput) -> @location(0) vec4<f32> {
     //     dist = max_distance;
     // }
     var hit_color = 0.0;
-    if dist <= hit_threshold {
+    if dist <= 0.0 {
         hit_color = 0.2;
     }
     // hit_color = clamp((min_dist - hit_threshold) / (hit_threshold * 0.25), 0.0, 1.0);

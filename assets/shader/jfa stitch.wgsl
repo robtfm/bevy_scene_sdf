@@ -5,7 +5,8 @@
 // join the update region to the original region
 // https://www.docdroid.net/YNntL0e/godot-sdfgi-pdf#page=30 claim that you only need to test the nearest
 // i find that quite flaky, it's significantly better checking diagonals as well (9 samples)
-// this still isn't perfect but errors seem to be pretty small
+// this still isn't perfect but errors seem to be smaller.
+// note we add a correction in the output stage anyway so maybe it's not necessary
 
 @compute @workgroup_size(8,8,8)
 fn stitch(@builtin(global_invocation_id) g_id: vec3<u32>) {
@@ -19,18 +20,20 @@ fn stitch(@builtin(global_invocation_id) g_id: vec3<u32>) {
 
     let target_point = addr::voxel_local_to_local_position(local_voxel);
     let worst_dist = bind::cascade_info.tile_size * f32(consts::TILE_DIM_COUNT - 1u) * 9999.0;
+    let write_address = addr::voxel_local_to_maybe_grid(local_voxel);
     var best_dist_sq = worst_dist * worst_dist;
-    var best_write = vec4<i32>(0,0,0,0);
 
-    let jump_source_coords = addr::voxel_local_to_maybe_grid(local_voxel);
-    let source_data = textureLoad(bind::nearest_jfa, jump_source_coords);
-    if source_data.a > 0 {
-        let local_seed_voxel = vec3<i32>(local_voxel + source_data.xyz);
-        best_write = vec4<i32>(local_seed_voxel - local_voxel, source_data.a);
-        let subvoxel = addr::subvoxel_index_to_subvoxel(u32(source_data.a - 1));
-        let local_seed_position = addr::subvoxel_local_position(local_seed_voxel, subvoxel);
-        let dist_sq = addr::distance_squared(local_seed_position, target_point);
-        best_dist_sq = dist_sq;
+    // init to current
+    var best_write = textureLoad(bind::nearest_jfa, write_address);
+    if best_write.a != 0 {
+        if all(best_write.xyz == vec3(0)) {
+            // we're a seed cell (and must already be calculated)
+            return;
+        }
+
+        let current = addr::check_source(target_point, local_voxel, local_voxel, best_dist_sq);
+        best_dist_sq = current.best_dist_sq;
+        best_write = current.write_value;
     }
 
     var stitch_source_voxel = vec3<i32>(0);
@@ -63,22 +66,14 @@ fn stitch(@builtin(global_invocation_id) g_id: vec3<u32>) {
                     continue;
                 }
 
-                let jump_source_coords = addr::voxel_local_to_maybe_grid(local_jump_source);
-                let source_data = textureLoad(bind::nearest_jfa, jump_source_coords);
-                if source_data.a > 0 {
-                    let stitch_seed_voxel = local_jump_source + source_data.xyz;
-                    let stitch_seed_subvoxel = addr::subvoxel_index_to_subvoxel(u32(source_data.a - 1));
-                    let stitch_seed_position = addr::subvoxel_local_position(stitch_seed_voxel, stitch_seed_subvoxel);
-                    let dist_sq = addr::distance_squared(stitch_seed_position, target_point);
-                    let offset = stitch_seed_voxel - local_voxel;
-                    if dist_sq < best_dist_sq && all(abs(offset) < vec3<i32>(128)) { 
-                        best_dist_sq = dist_sq;
-                        best_write = vec4<i32>(offset, source_data.a);
-                    }
+                let res = addr::check_source(target_point, local_voxel, local_jump_source, best_dist_sq);
+                if res.best_dist_sq < best_dist_sq {
+                    best_dist_sq = res.best_dist_sq;
+                    best_write = res.write_value;
                 }
             }
         }
     }
 
-    textureStore(bind::nearest_jfa, addr::voxel_local_to_maybe_grid(local_voxel), best_write);
+    textureStore(bind::nearest_jfa, write_address, best_write);
 }

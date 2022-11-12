@@ -91,13 +91,13 @@ fn setup(
     let mesh = meshes.add(shape::Cube::new(10.0).into());
     commands
         .spawn(SpatialBundle {
-            // transform: Transform::from_xyz(1.0, 1.0, 1.0).with_rotation(Quat::from_euler(
-            //     EulerRot::XYZ,
-            //     20.0,
-            //     30.0,
-            //     40.0,
-            // )),
-            transform: Transform::from_xyz(0.01, 0.01, 0.01),
+            transform: Transform::from_xyz(1.0, 1.0, 1.0).with_rotation(Quat::from_euler(
+                EulerRot::XYZ,
+                20.0,
+                30.0,
+                40.0,
+            )),
+            // transform: Transform::from_xyz(0.01, 0.01, 0.01),
             // transform: Transform::from_xyz(1.0, 1.0, 1.0),
             ..Default::default()
         })
@@ -247,6 +247,9 @@ fn toggle(
     }
 
     if !*still {
+        // some code for automating movement and freezing after some time, for grabbing consistent renderdocs
+
+        // 1 107
         // let f = match args.stopat {
         //     0 => frame.0,
         //     stopat => ((frame.0.max(100)) - 100).min(stopat as u32),
@@ -256,14 +259,14 @@ fn toggle(
         //     // just bump it
         //     state.filter = ExtractionFilter::Unmarked;
         // }
-        // // let mut angle = f as f32 / 2000.0;
-        // // if angle % std::f32::consts::PI * 4.0 > std::f32::consts::PI * 2.0 {
-        // //     angle = std::f32::consts::PI * 2.0 - angle % std::f32::consts::PI * 2.0;
-        // // } else {
-        // //     angle = angle % std::f32::consts::PI * 2.0;
-        // // }
-        // // m_trans.translation = Vec3::new(angle.sin(), 0.0, angle.cos()) * 20.0;
-        // m_trans.translation = Vec3::new(0.0 - (f as f32 / 2000.0).min(15.0), 0.0, 3.0 - 5.0 * (f as f32 / 5000.0).sin());
+        // let mut angle = f as f32 / 2000.0;
+        // if angle % std::f32::consts::PI * 4.0 > std::f32::consts::PI * 2.0 {
+        //     angle = std::f32::consts::PI * 2.0 - angle % std::f32::consts::PI * 2.0;
+        // } else {
+        //     angle = angle % std::f32::consts::PI * 2.0;
+        // }
+        // m_trans.translation = Vec3::new(angle.sin(), 0.0, angle.cos()) * 20.0;
+        // // m_trans.translation = Vec3::new(0.0 - (f as f32 / 2000.0).min(15.0), 0.0, 3.0 - 5.0 * (f as f32 / 5000.0).sin());
         // *m_trans = m_trans.looking_at(Vec3::ZERO, Vec3::Y);
         centre.0 = trans.translation();
     }

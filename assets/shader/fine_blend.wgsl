@@ -41,11 +41,12 @@ fn fine_blend(@builtin(local_invocation_id) invocation_id: vec3<u32>, @builtin(l
                 write_index, 
                 vec4<u32>(data, 0u, 1u)
             );
-            var write_seed = 1;
+            // subvoxel index 0 -> no seed, [1..SUBVOXELS^3] -> seed subvoxel index, SUBVOXELS^3+1 -> seed here but uninit
+            var write_seed = i32(consts::SUBVOXELS_PER_VOXEL_DIM * consts::SUBVOXELS_PER_VOXEL_DIM * consts::SUBVOXELS_PER_VOXEL_DIM + 1u);
             if all(data == vec2<u32>(0u)) {
                 write_seed = 0;
             }
-            // xyz = 0 -> seed is self
+            // xyz = 0, a != 0 -> seed is self
             textureStore(
                 bind::nearest_jfa,
                 write_index, 

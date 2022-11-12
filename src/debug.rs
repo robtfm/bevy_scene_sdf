@@ -17,7 +17,7 @@ use bevy::{
     },
 };
 
-use crate::{SdfCascadeInfos, SdfOutputData, queue_sdf_data};
+use crate::render::{SdfCascadeInfos, SdfOutputData};
 
 pub const DEBUG_NODE: &str = "sdf_debug_node";
 
@@ -29,7 +29,7 @@ impl Plugin for DebugSdfPlugin {
 
         let render_app = app.sub_app_mut(RenderApp);
         render_app.init_resource::<DebugSdfPipeline>();
-        render_app.add_system_to_stage(RenderStage::Queue, queue_debug_view_bindgroup.after(queue_sdf_data));
+        render_app.add_system_to_stage(RenderStage::Queue, queue_debug_view_bindgroup);
 
         let debug_node = DebugSdfNode::new(&mut render_app.world);
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
@@ -157,11 +157,6 @@ impl ExtractComponent for DebugSdf {
         item.clone()
     }
 }
-
-// #[derive(Component)]
-// struct DebugSdfBindings {
-//     output: CachedTexture,
-// }
 
 fn queue_debug_view_bindgroup(
     render_device: Res<RenderDevice>,

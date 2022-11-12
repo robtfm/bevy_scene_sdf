@@ -23,13 +23,28 @@ fn jfa(@builtin(global_invocation_id) g_id: vec3<u32>) {
     let update_max = ((vec3<i32>(i32(consts::VOXELS_PER_DIM)) - min(bind::cascade_info.redraw.xyz, vec3<i32>(0)) * i32(consts::VOXELS_PER_TILE_DIM) - 1) % i32(consts::VOXELS_PER_DIM)) + 1;
     let adjusted_grid_id = update_min + vec3<i32>(g_id);
 
+    let update_min = vec3<i32>(0); //(vec3<i32>(i32(consts::VOXELS_PER_DIM)) - max(bind::cascade_info.redraw.xyz, vec3<i32>(0)) * i32(consts::VOXELS_PER_TILE_DIM)) % i32(consts::VOXELS_PER_DIM);
+    let update_max = vec3<i32>(i32(consts::VOXELS_PER_DIM + 1u)); //((vec3<i32>(i32(consts::VOXELS_PER_DIM)) - min(bind::cascade_info.redraw.xyz, vec3<i32>(0)) * i32(consts::VOXELS_PER_TILE_DIM) - 1) % i32(consts::VOXELS_PER_DIM)) + 1;
+
     let local_voxel = adjusted_grid_id;
     let target_point = addr::voxel_local_to_local_position(local_voxel);
-    let half_vec = vec3<f32>(0.5 * bind::cascade_info.tile_size / f32(consts::VOXELS_PER_TILE_DIM * consts::SUBVOXELS_PER_VOXEL_DIM));
+    let voxel_half_vec = vec3<f32>(0.5 * bind::cascade_info.tile_size / f32(consts::VOXELS_PER_TILE_DIM));
     let worst_dist = bind::cascade_info.tile_size * f32(consts::TILE_DIM_COUNT - 1u) * 9999.0;
-
+    let write_address = addr::voxel_local_to_maybe_grid(local_voxel);
     var best_dist_sq = worst_dist * worst_dist;
-    var best_write = vec4<i32>(0);
+
+    var best_write = textureLoad(bind::nearest_jfa, write_address);
+    if best_write.a != 0 {
+        if all(best_write.xyz == vec3(0)) && best_write.a != i32(consts::SUBVOXELS_PER_VOXEL_DIM * consts::SUBVOXELS_PER_VOXEL_DIM * consts::SUBVOXELS_PER_VOXEL_DIM + 1u) {
+            // we're a seed cell, and already calculated
+            return;
+        }
+
+        let current = addr::check_source(target_point, local_voxel, local_voxel, best_dist_sq);
+        best_dist_sq = current.best_dist_sq;
+        best_write = current.write_value;
+    }
+
     var local_jump_source: vec3<i32>;
 
     for (var x=-1; x<=1; x++) {
@@ -48,60 +63,18 @@ fn jfa(@builtin(global_invocation_id) g_id: vec3<u32>) {
                     continue;
                 }
 
-                let jump_source_coords = addr::voxel_local_to_maybe_grid(local_jump_source);
-                if jump_source_coords.x > -1 { // source is within our live grid
-                    let source_data = textureLoad(bind::nearest_jfa, jump_source_coords);
+                if x == 0 && y == 0 && z == 0 {
+                    continue;
+                }
 
-                    if source_data.a != 0 { // source has a seed 
-
-                        let local_seed_voxel = vec3<i32>(local_jump_source + source_data.xyz);
-                        let seed_coords = addr::voxel_local_to_maybe_grid(local_seed_voxel);
-
-                        if seed_coords.x > -1 { // seed is within our live grid
-                            let seed_value = textureLoad(bind::seed_jfa, seed_coords).rg;
-
-                            if all(source_data.xyz == vec3<i32>(0)) {
-                                // jump source points to itself, need to check every subvoxel
-                                for (var sx=0u; sx<consts::SUBVOXELS_PER_VOXEL_DIM; sx++) {
-                                    for (var sy=0u; sy<consts::SUBVOXELS_PER_VOXEL_DIM; sy++) {
-                                        for (var sz=0u; sz<consts::SUBVOXELS_PER_VOXEL_DIM; sz++) {
-                                            var seed_subvoxel: bool;
-                                            let shift = (((sz * consts::SUBVOXELS_PER_VOXEL_DIM) + sy) * consts::SUBVOXELS_PER_VOXEL_DIM) + sx;
-                                            if shift < 32u {
-                                                seed_subvoxel = ((seed_value.r >> shift) & 1u) == 1u;
-                                            } else {
-                                                seed_subvoxel = ((seed_value.g >> (shift - 32u)) & 1u) == 1u;
-                                            }
-
-                                            if seed_subvoxel {
-                                                let local_seed_position = addr::subvoxel_local_position(local_seed_voxel, vec3<u32>(sx,sy,sz));
-                                                let dist_sq = addr::distance_squared(local_seed_position, target_point);
-
-                                                if dist_sq < best_dist_sq {
-                                                    best_dist_sq = dist_sq;
-                                                    best_write = vec4<i32>(local_seed_voxel - local_voxel, i32(shift + 1u));
-                                                }
-                                            }
-                                        }
-                                    }                                    
-                                }
-                            } else {
-                                // jump source points to another seed cell, we can assume their subvoxel is the one we want
-                                let subvoxel = addr::subvoxel_index_to_subvoxel(u32(source_data.a - 1));
-                                let local_seed_position = addr::subvoxel_local_position(local_seed_voxel, subvoxel);
-                                let dist_sq = addr::distance_squared(local_seed_position, target_point);
-
-                                if dist_sq < best_dist_sq {
-                                    best_dist_sq = dist_sq;
-                                    best_write = vec4<i32>(local_seed_voxel - local_voxel, source_data.a);
-                                }
-                            }
-                        }
-                    }
+                let res = addr::check_source(target_point, local_voxel, local_jump_source, best_dist_sq);
+                if res.best_dist_sq < best_dist_sq {
+                    best_dist_sq = res.best_dist_sq;
+                    best_write = res.write_value;
                 }
             }
         }
     }
 
-    textureStore(bind::nearest_jfa, addr::voxel_local_to_maybe_grid(local_voxel), best_write);
+    textureStore(bind::nearest_jfa, write_address, best_write);
 }
