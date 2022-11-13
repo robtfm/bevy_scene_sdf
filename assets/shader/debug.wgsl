@@ -62,6 +62,7 @@ fn fs_main(in: fs::FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     let max_steps = 250;
 
+    var hit_threshold = 0.01;
     var min_dist = 1e20;
     var distance_sq = 0.0;
     var cascade = 0u;
@@ -69,13 +70,13 @@ fn fs_main(in: fs::FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var exited_cascade = false;
     var steps: i32;
 
-    var dist = min_step_size;
+    var dist = hit_threshold;
     var total_dist = dist;
 
     var debug: vec3<f32>;
     var pos = origin + dist * ray;
 
-    for (steps = 0; cascade < cascades_info.count && dist > 0.0 && steps < max_steps; steps++) {
+    for (steps = 0; cascade < cascades_info.count && dist >= hit_threshold && steps < max_steps; steps++) {
         let res = sample_distance(pos, cascade);
 
         exited_cascade = res.outside_cascade;

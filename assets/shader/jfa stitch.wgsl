@@ -12,7 +12,8 @@
 fn stitch(@builtin(global_invocation_id) g_id: vec3<u32>) {
     let local_voxel = vec3<i32>(addr::voxel_grid_to_local(g_id));
 
-    let stitch_dir = vec3<i32>(bind::cascade_info.redraw.xyz != vec3<i32>(0));
+    let stitch_axis = bind::cascade_info.redraw.xyz != vec3<i32>(0);
+    let stitch_dir = vec3<i32>(stitch_axis);
     let stitch_mask = vec3<i32>(1) - stitch_dir;
 
     let stitch_right = (i32(consts::VOXELS_PER_DIM) - bind::cascade_info.redraw.xyz * i32(consts::VOXELS_PER_TILE_DIM)) % i32(consts::VOXELS_PER_DIM);
@@ -50,26 +51,72 @@ fn stitch(@builtin(global_invocation_id) g_id: vec3<u32>) {
     let iter_max = abs(stitch_mask);
     var local_jump_source = vec3<i32>(0);
 
-    for (var x=iter_min.x; x<=iter_max.x; x++) {
-        local_jump_source.x = stitch_source_voxel.x + x * jump_size;
-        if local_jump_source.x < 0 || local_jump_source.x >= i32(consts::VOXELS_PER_DIM) {
-            continue;
+    if true {
+        // check up to 2x away for stitch cell
+        let res = addr::check_source(target_point, local_voxel, stitch_source_voxel, best_dist_sq * 2.0);
+        if res.best_dist_sq < best_dist_sq {
+            best_dist_sq = res.best_dist_sq;
+            best_write = res.write_value;
         }
-        for (var y=iter_min.y; y<=iter_max.y; y++) {
-            local_jump_source.y = stitch_source_voxel.y + y * jump_size;
-            if local_jump_source.y < 0 || local_jump_source.y >= i32(consts::VOXELS_PER_DIM) {
-                continue;
-            }
-            for (var z=iter_min.z; z<=iter_max.z; z++) {
-                local_jump_source.z = stitch_source_voxel.z + z * jump_size;
-                if local_jump_source.z < 0 || local_jump_source.z >= i32(consts::VOXELS_PER_DIM) {
-                    continue;
+
+        if res.best_dist_sq < best_dist_sq * 2.0 {
+            let stitch_distance = sqrt(addr::distance_squared(addr::voxel_local_to_local_position(stitch_source_voxel), addr::voxel_local_to_local_position(local_voxel + res.write_value.xyz)));
+            let stitch_voxels =  stitch_distance * f32(consts::VOXELS_PER_TILE_DIM) / bind::cascade_info.tile_size;
+
+            var jumps = array(
+                vec2(-0.707, -0.707),
+                vec2(0.0, -1.0),
+                vec2(0.707, -0.707),
+                vec2(-1.0, 0.0),
+                vec2(1.0, 0.0),
+                vec2(-0.707, 0.707),
+                vec2(0.0, 1.0),
+                vec2(0.707, 0.707),
+            );
+
+            for (var i=0u; i<8u; i++) {
+                let jump = jumps[i];
+                local_jump_source = stitch_source_voxel;
+                if stitch_axis.x {
+                    local_jump_source += vec3<i32>(vec3<f32>(0.0, jump.x, jump.y) * stitch_distance);
+                } else if stitch_axis.y {
+                    local_jump_source += vec3<i32>(vec3<f32>(jump.x, 0.0, jump.y) * stitch_distance);
+                } else if stitch_axis.z {
+                    local_jump_source += vec3<i32>(vec3<f32>(0.0, jump.x, jump.y) * stitch_distance);
                 }
 
-                let res = addr::check_source(target_point, local_voxel, local_jump_source, best_dist_sq);
-                if res.best_dist_sq < best_dist_sq {
-                    best_dist_sq = res.best_dist_sq;
-                    best_write = res.write_value;
+                if all(local_jump_source > vec3(0) && local_jump_source < vec3(i32(consts::VOXELS_PER_DIM))) {
+                    let res = addr::check_source(target_point, local_voxel, stitch_source_voxel, best_dist_sq);
+                    if res.best_dist_sq < best_dist_sq {
+                        best_dist_sq = res.best_dist_sq;
+                        best_write = res.write_value;
+                    }
+                }
+            }
+        }
+    } else {
+        // check grid based on dist to stitch
+        for (var x=iter_min.x; x<=iter_max.x; x++) {
+            local_jump_source.x = stitch_source_voxel.x + x * jump_size;
+            if local_jump_source.x < 0 || local_jump_source.x >= i32(consts::VOXELS_PER_DIM) {
+                continue;
+            }
+            for (var y=iter_min.y; y<=iter_max.y; y++) {
+                local_jump_source.y = stitch_source_voxel.y + y * jump_size;
+                if local_jump_source.y < 0 || local_jump_source.y >= i32(consts::VOXELS_PER_DIM) {
+                    continue;
+                }
+                for (var z=iter_min.z; z<=iter_max.z; z++) {
+                    local_jump_source.z = stitch_source_voxel.z + z * jump_size;
+                    if local_jump_source.z < 0 || local_jump_source.z >= i32(consts::VOXELS_PER_DIM) {
+                        continue;
+                    }
+
+                    let res = addr::check_source(target_point, local_voxel, local_jump_source, best_dist_sq);
+                    if res.best_dist_sq < best_dist_sq {
+                        best_dist_sq = res.best_dist_sq;
+                        best_write = res.write_value;
+                    }
                 }
             }
         }

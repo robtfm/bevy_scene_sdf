@@ -28,5 +28,5 @@ fn output(@builtin(global_invocation_id) local_voxel: vec3<u32>) {
 
     // textureStore(output_texture, write_index, vec4<f32>(dist - 0.5 * bind::cascade_info.tile_size * f32(consts::TILE_DIM_COUNT) / f32(consts::VOXELS_PER_DIM), 0.0, 0.0, 1.0));
     // sqrt(2) / 2 == 0.707 is the worst case overestimate of distance from the jump stitch
-    textureStore(output_texture, write_index, vec4<f32>(dist * 0.70711 - 0.5 * bind::cascade_info.tile_size * f32(consts::TILE_DIM_COUNT) / f32(consts::VOXELS_PER_DIM), 0.0, 0.0, 1.0));
+    textureStore(output_texture, write_index, vec4<f32>(dist * 0.9 - 0.5 * bind::cascade_info.tile_size * f32(consts::TILE_DIM_COUNT) / f32(consts::VOXELS_PER_DIM), 0.0, 0.0, 1.0));
 }
