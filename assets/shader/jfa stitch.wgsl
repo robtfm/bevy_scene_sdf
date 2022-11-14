@@ -4,9 +4,10 @@
 
 // join the update region to the original region
 // https://www.docdroid.net/YNntL0e/godot-sdfgi-pdf#page=30 claim that you only need to test the nearest
-// i find that quite flaky, it's significantly better checking diagonals as well (9 samples)
+// i find that quite flaky, it's significantly better checking others as well
 // this still isn't perfect but errors seem to be smaller.
-// note we add a correction in the output stage anyway so maybe it's not necessary
+// note we add a correction in the output stage anyway since it is still not perfect, but without additional
+// samples the correction needs to be sqrt(2)/2 = 0.707 which is very big.
 
 @compute @workgroup_size(8,8,8)
 fn stitch(@builtin(global_invocation_id) g_id: vec3<u32>) {
@@ -52,6 +53,9 @@ fn stitch(@builtin(global_invocation_id) g_id: vec3<u32>) {
     var local_jump_source = vec3<i32>(0);
 
     if true {
+        // this really should be better than checking diagonals around the stitch point but it seems to be the same
+        // i think i did something wrong here...
+
         // check up to 2x away for stitch cell
         let res = addr::check_source(target_point, local_voxel, stitch_source_voxel, best_dist_sq * 2.0);
         if res.best_dist_sq < best_dist_sq {
@@ -60,6 +64,7 @@ fn stitch(@builtin(global_invocation_id) g_id: vec3<u32>) {
         }
 
         if res.best_dist_sq < best_dist_sq * 2.0 {
+            // check points in a circle around the stitch point at distance from stitch point equal to distance from stitch point to stitch seed
             let stitch_distance = sqrt(addr::distance_squared(addr::voxel_local_to_local_position(stitch_source_voxel), addr::voxel_local_to_local_position(local_voxel + res.write_value.xyz)));
             let stitch_voxels =  stitch_distance * f32(consts::VOXELS_PER_TILE_DIM) / bind::cascade_info.tile_size;
 

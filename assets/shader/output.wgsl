@@ -26,7 +26,7 @@ fn output(@builtin(global_invocation_id) local_voxel: vec3<u32>) {
     let cascade_offset = consts::VOXELS_PER_DIM * bind::cascade_info.index;
     let write_index = vec3<i32>(local_voxel + vec3<u32>(cascade_offset, 0u, 0u));
 
-    // textureStore(output_texture, write_index, vec4<f32>(dist - 0.5 * bind::cascade_info.tile_size * f32(consts::TILE_DIM_COUNT) / f32(consts::VOXELS_PER_DIM), 0.0, 0.0, 1.0));
     // sqrt(2) / 2 == 0.707 is the worst case overestimate of distance from the jump stitch
+    // 0.9 seems to work if we sample around the stitch point. it should be better but ¯\_(ツ)_/¯
     textureStore(output_texture, write_index, vec4<f32>(dist * 0.9 - 0.5 * bind::cascade_info.tile_size * f32(consts::TILE_DIM_COUNT) / f32(consts::VOXELS_PER_DIM), 0.0, 0.0, 1.0));
 }
